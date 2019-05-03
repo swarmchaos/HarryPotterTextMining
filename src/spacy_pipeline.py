@@ -3,7 +3,9 @@ from nltk.tag import StanfordNERTagger
 from nltk.tokenize import word_tokenize
 from collections import Counter
 import json
+import operator
 from tqdm import tqdm
+import neuralcoref
 
 books = {1: 'Harry Potter 1 - Sorcerer\'s Stone.txt',
          2: 'Harry Potter 2 - Chamber of Secrets.txt',
@@ -44,8 +46,9 @@ def NER_tagging():
     for i in range(1, 8):
         bookstring = createBookString(i)
         ents_dict = {}
-        nlp = spacy.load('en_core_web_lg')
+        nlp = spacy.load('en')
         nlp.max_length = 65000000
+        neuralcoref.add_to_pipe(nlp)
         book_nlp = nlp(bookstring)
 
         labels = set([w.label_ for w in book_nlp.ents])
@@ -56,6 +59,8 @@ def NER_tagging():
 
             ents_dict[label] = entities
 
+        with open(f'book_{i}.txt', 'w+') as book:
+            book.write(book_nlp._.coref_resolved)
         with open(f'../data/NER_book_{i}.json', 'w+') as jsonfile:
             jsonfile.write(json.dumps(ents_dict, indent=2, sort_keys=True))
 
@@ -78,7 +83,7 @@ def evaluate(tag: str):
     TP = 0
     FP = 0
     FN = 0
-    with open(f'../data/NER_overall.json') as ner_file:
+    with open(f'../data/NER_overall_majority_vote.json') as ner_file:
         ner_dict = json.load(ner_file)
         content_list = ner_dict[tag]
         char_file = open('../data/characters_unique.txt')
@@ -127,5 +132,28 @@ def evaluate(tag: str):
     return f1
 
 
+def majority_vote():
+    with open('../data/NER_overall.json') as ner:
+        ner_dict = json.load(ner)
+        word_dict = {}
+        for key in ner_dict.keys():
+            ner_tags = ner_dict[key]
+            for word in ner_tags:
+                if not word in word_dict.keys():
+                    word_dict[word] = {key: 1}
+                elif key not in word_dict[word].keys():
+                    word_dict[word][key] = 1
+                else:
+                    word_dict[word][key] += 1
+        new_ner_dict = {key: [] for key in ner_dict.keys()}
+        for word, ner_counters in word_dict.items():
+            max_occuring_tag = max(ner_counters.items(),
+                                   key=operator.itemgetter(1))[0]
+            new_ner_dict[max_occuring_tag].append(word)
+        with open('../data/NER_overall_majority_vote.json', 'w+') as majority:
+            majority.write(json.dumps(new_ner_dict, indent=2))
+
+
 if __name__ == "__main__":
-    print(evaluate('PERSON'))
+    # majority_vote()
+    NER_tagging()
