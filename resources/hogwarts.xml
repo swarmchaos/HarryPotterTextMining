@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<Map>
+    <Name>Hogwarts</Name>
+    <Image>test_map.jpg</Image>
+    <Location>
+        <Name>Diagon Alley</Name>
+        <X>644</X>
+        <Y>307</Y>
+    </Location>
+    <Location>
+        <Name>Test</Name>
+        <X>50</X>
+        <Y>50</Y>
+    </Location>
+</Map>
