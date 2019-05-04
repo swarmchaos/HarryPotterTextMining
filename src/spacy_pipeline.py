@@ -45,22 +45,27 @@ def cleanUp(token, lower=True):
 def NER_tagging():
     for i in range(1, 8):
         bookstring = createBookString(i)
+        booklen = len(bookstring)
+        parts = [bookstring[:int(booklen/3)], bookstring[int(booklen/3):int(2*booklen/3)], bookstring[int(2*booklen/3):]]
         ents_dict = {}
         nlp = spacy.load('en')
         nlp.max_length = 65000000
         neuralcoref.add_to_pipe(nlp)
-        book_nlp = nlp(bookstring)
+        book_processed = ''
+        for part in parts:
+            book_nlp = nlp(part)
 
-        labels = set([w.label_ for w in book_nlp.ents])
-        for label in labels:
-            print(f'Label: {label}')
-            entities = [cleanUp(e.string, lower=False)
-                        for e in book_nlp.ents if label == e.label_]
-
-            ents_dict[label] = entities
-
+            labels = set([w.label_ for w in book_nlp.ents])
+            for label in labels:
+                print(f'Label: {label}')
+                entities = [cleanUp(e.string, lower=False)
+                            for e in book_nlp.ents if label == e.label_]
+                if label not in ents_dict.keys():
+                    ents_dict[label] = []
+                ents_dict[label] += entities
+            book_processed += book_nlp._.coref_resolved
         with open(f'book_{i}.txt', 'w+') as book:
-            book.write(book_nlp._.coref_resolved)
+            book.write(book_processed)
         with open(f'../data/NER_book_{i}.json', 'w+') as jsonfile:
             jsonfile.write(json.dumps(ents_dict, indent=2, sort_keys=True))
 
@@ -156,4 +161,6 @@ def majority_vote():
 
 if __name__ == "__main__":
     # majority_vote()
-    NER_tagging()
+    merge_NER()
+    majority_vote()
+    print(evaluate('PERSON'))
