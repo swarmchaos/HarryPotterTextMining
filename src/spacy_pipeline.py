@@ -6,22 +6,24 @@ import json
 import operator
 from tqdm import tqdm
 import neuralcoref
+from pathlib import Path
+import re
+from unidecode import unidecode
 
-books = {1: 'Harry Potter 1 - Sorcerer\'s Stone.txt',
-         2: 'Harry Potter 2 - Chamber of Secrets.txt',
-         3: 'Harry Potter 3 - The Prisoner Of Azkaban.txt',
-         4: 'Harry Potter 4 - The Goblet Of Fire.txt',
-         5: 'Harry Potter 5 - Order of the Phoenix.txt',
-         6: 'Harry Potter 6 - The Half Blood Prince.txt',
-         7: 'Harry Potter 7 - Deathly Hollows.txt'}
+books = {1: 'Book 1 - The Philosopher\'s Stone.txt',
+         2: 'Book 2 - The Chamber of Secrets.txt',
+         3: 'Book 3 - The Prisoner of Azkaban.txt',
+         4: 'Book 4 - The Goblet of Fire.txt',
+         5: 'Book 5 - The Order of the Phoenix.txt',
+         6: 'Book 6 - The Half Blood Prince.txt',
+         7: 'Book 7 - The Deathly Hallows.txt'}
 
 
 def createBookString(book_no: int) -> str:
     print(f'Extracting bookstring for book {book_no}')
     bookstring = ''
-    with open(f'../data/{books[book_no]}', 'rb') as book1:
-        for line in book1:
-            bookstring += line.decode('utf-8', 'ignore')
+    with open(f'../data/cleanedBooks/{books[book_no]}', 'r') as book1:
+        bookstring = unidecode(book1.read())
     return bookstring
 
 
@@ -46,7 +48,7 @@ def NER_tagging():
     for i in range(1, 8):
         bookstring = createBookString(i)
         booklen = len(bookstring)
-        parts = [bookstring[:int(booklen/3)], bookstring[int(booklen/3):int(2*booklen/3)], bookstring[int(2*booklen/3):]]
+        parts = [bookstring[:int(booklen/4)], bookstring[int(booklen/4):int(2*booklen/4)], bookstring[int(2*booklen/4):int(3*booklen/4)], bookstring[int(3*booklen/4):]]
         ents_dict = {}
         nlp = spacy.load('en')
         nlp.max_length = 65000000
@@ -64,7 +66,7 @@ def NER_tagging():
                     ents_dict[label] = []
                 ents_dict[label] += entities
             book_processed += book_nlp._.coref_resolved
-        with open(f'book_{i}.txt', 'w+') as book:
+        with open(f'../data/book_{i}_coref.txt', 'w+') as book:
             book.write(book_processed)
         with open(f'../data/NER_book_{i}.json', 'w+') as jsonfile:
             jsonfile.write(json.dumps(ents_dict, indent=2, sort_keys=True))
@@ -159,8 +161,29 @@ def majority_vote():
             majority.write(json.dumps(new_ner_dict, indent=2))
 
 
+def extract_chapters():
+    with open('../data/chapters/chapterList.txt', 'r') as chaptersList:
+        chapters = set([chapter.strip().upper() for chapter in chaptersList.readlines()])
+    bookpath = Path('../data')
+    for bp in bookpath.iterdir():
+        if 'coref' in bp.name:
+            with open(str(bp), 'r') as book:
+                bookstr = book.read()
+                chapter_dict = {}
+                paragraphs = []
+                cur_chapter = None
+                for line in bookstr.split('\n\n'):
+                    stripped = line.strip()
+                    if stripped in chapters:
+                        if cur_chapter is not None:
+                            chapter_dict[cur_chapter] = paragraphs
+                            paragraphs = []
+                        cur_chapter = stripped
+                        continue
+                    paragraphs.append(line)
+                with open(f'../data/chapters/{bp.name[:-4]}.json', 'w+') as json_book:
+                    json_book.write(json.dumps(chapter_dict, indent=4))
+
+
 if __name__ == "__main__":
-    # majority_vote()
-    merge_NER()
-    majority_vote()
-    print(evaluate('PERSON'))
+    extract_chapters()
