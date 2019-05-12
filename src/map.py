@@ -23,9 +23,11 @@ class Map:
         self._pixmap = QPixmap(image_path)
         self._map_name = map_name
         self._location_list = []
+        self._location_dict = {}
 
     def __init__(self,xml_path:Path):
         self._location_list = []
+        self._location_dict = {}
         self.load_map_from_xml(xml_path)
 
     def load_map_from_xml(self, xml_path:Path):
@@ -48,6 +50,13 @@ class Map:
 
         location = Location(name_node.text,int(x_node.text),int(y_node.text))
         self._location_list.append(location)
+        self._location_dict[name_node.text] = len(self._location_list ) -1
+
+    def get_location_by_name(self, location_name):
+        if(location_name in self._location_dict):
+            return self._location_list[self._location_dict.get(location_name)]
+        else:
+            return None
 
     @property
     def pixmap(self):

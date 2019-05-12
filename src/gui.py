@@ -13,6 +13,8 @@ class MainWindow(QWidget):
 
     map_label = None
 
+    timeline_started = False
+
     def __init__(self):
         super().__init__()
         self._character_list = ["Harry","Ron","Hermione","Dumbledore"]
@@ -26,10 +28,10 @@ class MainWindow(QWidget):
         self._layout = QGridLayout()
         self.setLayout(self._layout) 
 
-        start_button = QPushButton('Start')
-        start_button.resize(start_button.sizeHint())
-        start_button.clicked.connect(self.start_timeline)
-        self._layout.addWidget(start_button,4,6)
+        self._start_button = QPushButton('Start')
+        self._start_button.resize(self._start_button.sizeHint())
+        self._start_button.clicked.connect(self.start_timeline)
+        self._layout.addWidget(self._start_button,4,6)
   
         map_to_load = Map(Path('../resources/hogwarts.xml'))
         self.map_widget = Map_Widget(map_to_load)
@@ -47,18 +49,40 @@ class MainWindow(QWidget):
         self._time_slider.setMaximum(10) # TODO Change to correct number
         self._layout.addWidget(self._time_slider,4,0,-1,6)
 
+        self._timeline = QtCore.QTimeLine(10000, self)
+        self._timeline.setFrameRange(0,10)
+        #self._timeline.frameChanged[int].connect(self._time_slider.setValue)
+        self._timeline.frameChanged[int].connect(self.next_step)
+        self._timeline.setCurveShape(QtCore.QTimeLine.LinearCurve)
+
+
+
     def update_character_list(self):
         for character in self._character_list:
             character_checkbox = QCheckBox(character)
             self._layout_character_scroll.addWidget(character_checkbox)
     
     def start_timeline(self):
-        print("Start")
-        self.next_step()
+        current_state = self._timeline.state()
+        if(current_state == QtCore.QTimeLine.NotRunning):
+            self._timeline.start()
+            self._start_button.setText("Start")
+        elif(current_state == QtCore.QTimeLine.Paused):
+            self._timeline.resume()
+            self._start_button.setText("Pause")
+        elif(current_state == QtCore.QTimeLine.Running):
+            self._timeline.setPaused(True)
+            self._start_button.setText("Resume")
     
     def next_step(self):
-        slider_val = self._time_slider.value()
-        self._time_slider.setValue(slider_val+1)
+        current_chapter = self._timeline.currentFrame()
+        self._time_slider.setValue(current_chapter)
+        location_names = self.get_location_names_for_chapter(current_chapter)
+        self.map_widget.draw_path_by_location(location_names[0], location_names[1])
+        self.map_widget.update_map()
+        self.map_widget.start_animation()
+
+
     def previous_step(self):
         slider_val = self._time_slider.value
         self._time_slider.setValue(slider_val-1)
@@ -68,6 +92,20 @@ class MainWindow(QWidget):
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
+
+    def get_location_names_for_chapter(self,chapter:int):
+        ret = ["",""]
+        if(chapter==0):
+            ret[0] = "Hogsmeade Station"
+            ret[1] = "Hogsmeade Station"
+        if chapter == 1:
+            ret[0] = "Hogsmeade Station"
+            ret[1] = "Whomping Willow"
+        if chapter == 2:
+            ret[0] = "Whomping Willow"
+            ret[1] = "Forbidden Forest"
+        return ret
+
 
 
 

@@ -1,11 +1,12 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QDesktopWidget, QLabel, QScrollArea, QVBoxLayout, QPushButton
-from PyQt5.QtGui import QIcon, QPixmap, QPainter
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QDesktopWidget, QLabel, QScrollArea, QVBoxLayout, QPushButton, QSizePolicy
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPalette, QPen
 
-from PyQt5 import QtCore, Qt
+from PyQt5 import QtCore, Qt, QtWidgets
 
 from map import *
+from route import *
 
 class Map_Widget(QWidget):
 
@@ -17,6 +18,9 @@ class Map_Widget(QWidget):
         self._map_widgets = [] # Widgets that are unique for a map, they need to be removed when changing the map
 
         self._image_label = QLabel()
+        self._image_label.setBackgroundRole(QPalette.Base)
+        self._image_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        self._image_label.setScaledContents(True)
         self._name_label = QLabel()
         self._layout.addWidget(self._name_label)
         
@@ -24,12 +28,19 @@ class Map_Widget(QWidget):
         self._layout.addWidget(self._image_scroll)
         self._image_scroll.setWidgetResizable(True)
         self._image_scroll_container = QWidget()
+        self._image_scroll.setBackgroundRole(QPalette.Dark)
         self._image_scroll.setWidget(self._image_label)
+        self._image_scroll.setVisible(True)
 
         self.load_map(self._map)
         self._image_scroll.adjustSize()
 
-        
+        self._active_routes = []
+
+        self._animation_timeline = QTimeLine(500)
+        self._animation_timeline.setFrameRange(0,10)
+        self._animation_timeline.valueChanged.connect(self.update_map)
+        self._animation_timeline.setCurveShape(QtCore.QTimeLine.LinearCurve)
 
     def load_map(self,map:Map):
         for map_widget in self._map_widgets:
@@ -64,6 +75,8 @@ class Map_Widget(QWidget):
             print(location.y)
             location_button.move(location.x, location.y)
             location_button.clicked.connect(self.make_map_change(location.name))
+            location_button.raise_()
+            location_button.show()
             self._map_widgets.append(location_button)
 
     def make_map_change(self, map_name):
@@ -71,15 +84,52 @@ class Map_Widget(QWidget):
             self.load_map_by_name(map_name)
         return change_map_callback
 
-    def paintEvent(self, event):
-        super().paintEvent(event)
+    def paintPixmap(self,x,y,pixmap):
         painter = QPainter()
         painter.begin(self._image_label.pixmap())
-        painter.setPen(QtCore.Qt.red)
+        painter.drawPixmap(x,y,pixmap)
+        painter.end()
+
+    def draw_path_by_location(self, start_location_name, end_location_name):
+        start_location = self._map.get_location_by_name(start_location_name)
+        end_location = self._map.get_location_by_name(end_location_name)
+        if start_location == None or end_location == None:
+            print("One of the locations "+start_location_name+", "+end_location_name+" is not found on map")
+            return
+        start_point = [start_location.x, start_location.y]
+        end_point = [end_location.x, end_location.y]
+        self.drawPath(start_point,end_point)
+
+    def drawPath(self,start_point,end_point):
+        print("Draw path")
+        d_route = Route()
+        d_route.set_route(start_point,end_point,10)
+        self._active_routes.append(d_route)
+    
+    def start_animation(self):
+        self._animation_timeline.start()
+
+    def update_map(self):
+        print("Update")
+        self._image_label.update()
+        self.paintEvent(None)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        paint_pixmap = QPixmap(self._image_label.pixmap())
+        painter = QPainter()
+        painter.begin(paint_pixmap)
+        painter.setPen(QPen(QtCore.Qt.red,1,QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
         location_list = self._map.locations
+        route_list = self._active_routes
         for location in location_list:
             painter.drawEllipse(location.x, location.y, 30,30)
+        for route in self._active_routes:
+            start_point, end_point = route.get_line_at_frame(self._animation_timeline.currentFrame())
+            print(str(self._animation_timeline.currentFrame()) + " " + str(start_point) + " " + str(end_point))
+            painter.drawLine(start_point[0],start_point[1],end_point[0],end_point[1])
         painter.end()
+        self._image_label.setPixmap(paint_pixmap)
 
 
 

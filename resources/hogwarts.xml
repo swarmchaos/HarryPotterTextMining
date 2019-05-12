@@ -8,8 +8,18 @@
         <Y>307</Y>
     </Location>
     <Location>
-        <Name>Test</Name>
-        <X>50</X>
-        <Y>50</Y>
+        <Name>Forbidden Forest</Name>
+        <X>900</X>
+        <Y>45</Y>
+    </Location>
+    <Location>
+        <Name>Hogsmeade Station</Name>
+        <X>720</X>
+        <Y>647</Y>
+    </Location>
+    <Location>
+        <Name>Whomping Willow</Name>
+        <X>770</X>
+        <Y>209</Y>
     </Location>
 </Map>
