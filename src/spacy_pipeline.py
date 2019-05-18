@@ -1,6 +1,7 @@
 import spacy
 from nltk.tag import StanfordNERTagger
 from nltk.tokenize import word_tokenize
+import nltk
 from collections import Counter
 import json
 import operator
@@ -48,7 +49,8 @@ def NER_tagging():
     for i in range(1, 8):
         bookstring = createBookString(i)
         booklen = len(bookstring)
-        parts = [bookstring[:int(booklen/4)], bookstring[int(booklen/4):int(2*booklen/4)], bookstring[int(2*booklen/4):int(3*booklen/4)], bookstring[int(3*booklen/4):]]
+        parts = [bookstring[:int(booklen/4)], bookstring[int(booklen/4):int(2*booklen/4)],
+                 bookstring[int(2*booklen/4):int(3*booklen/4)], bookstring[int(3*booklen/4):]]
         ents_dict = {}
         nlp = spacy.load('en')
         nlp.max_length = 65000000
@@ -163,26 +165,53 @@ def majority_vote():
 
 def extract_chapters():
     with open('../data/chapters/chapterList.txt', 'r') as chaptersList:
-        chapters = set([chapter.strip().upper() for chapter in chaptersList.readlines()])
-    bookpath = Path('../data')
+        chapters_numerated = {chapter.strip().upper(): no
+                              for no, chapter in enumerate(chaptersList.readlines())}
+    bookpath = Path('../data/cleanedBooks')
+    chapter_dict = {}
+
     for bp in bookpath.iterdir():
-        if 'coref' in bp.name:
-            with open(str(bp), 'r') as book:
-                bookstr = book.read()
-                chapter_dict = {}
-                paragraphs = []
-                cur_chapter = None
-                for line in bookstr.split('\n\n'):
-                    stripped = line.strip()
-                    if stripped in chapters:
-                        if cur_chapter is not None:
-                            chapter_dict[cur_chapter] = paragraphs
-                            paragraphs = []
-                        cur_chapter = stripped
-                        continue
-                    paragraphs.append(line)
-                with open(f'../data/chapters/{bp.name[:-4]}.json', 'w+') as json_book:
-                    json_book.write(json.dumps(chapter_dict, indent=4))
+        with open(str(bp), 'r') as book:
+
+            bookstr = unidecode(book.read())
+            paragraphs = []
+            cur_chapter = None
+            for line in bookstr.split('\n\n'):
+                stripped = line.strip()
+                if stripped.upper() in chapters_numerated.keys():
+                    if cur_chapter is not None:
+                        chapter_dict[cur_chapter] = paragraphs
+                        paragraphs = []
+                    cur_chapter = stripped.upper()
+                    continue
+                paragraphs.append(line)
+            chapter_dict[cur_chapter] = paragraphs
+
+    chapter_dict_new = {}
+    for chapter, pars in chapter_dict.items():
+        new_pars = []
+        next_passed = False
+        for i in range(len(pars)):
+            if next_passed:
+                next_passed = False
+                continue
+
+            sentences = nltk.sent_tokenize(pars[i])
+            par_str = pars[i]
+            if len(sentences) < 3 and i >= 1:
+                new_pars[-1] += par_str
+            elif len(sentences) < 3 and i == 0 and len(pars) > 1:
+                par_str = par_str + pars[i+1]
+                next_passed = True
+            new_pars.append(par_str)
+        chapter_dict_new[chapter] = new_pars
+
+    with open(f'../data/chapters/chapter_paragraphs.json', 'w+') as json_book:
+        json_book.write(json.dumps(chapter_dict_new, indent=4))
+    with open(f'../data/chapters/chapter_paragraphs_unmerged.json', 'w+') as unmerged:
+        unmerged.write(json.dumps(chapter_dict, indent=4))
+    with open(f'../data/chapters/chapter_numbers.json', 'w+') as chapter_numbers:
+        chapter_numbers.write(json.dumps(chapters_numerated, indent=4))
 
 
 if __name__ == "__main__":
