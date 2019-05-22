@@ -1,6 +1,8 @@
 import spacy
 from nltk.tag import StanfordNERTagger
 from nltk.tokenize import word_tokenize
+from nltk.tokenize import sent_tokenize
+import nltk
 from collections import Counter
 import json
 import operator
@@ -9,6 +11,8 @@ import neuralcoref
 from pathlib import Path
 import re
 from unidecode import unidecode
+
+import csv
 
 books = {1: 'Book 1 - The Philosopher\'s Stone.txt',
          2: 'Book 2 - The Chamber of Secrets.txt',
@@ -22,7 +26,7 @@ books = {1: 'Book 1 - The Philosopher\'s Stone.txt',
 def createBookString(book_no: int) -> str:
     print(f'Extracting bookstring for book {book_no}')
     bookstring = ''
-    with open(f'../data/cleanedBooks/{books[book_no]}', 'r') as book1:
+    with open(f'../data/cleanedBooks/{books[book_no]}', 'r', encoding='utf8') as book1:
         bookstring = unidecode(book1.read())
     return bookstring
 
@@ -53,6 +57,8 @@ def NER_tagging():
         nlp = spacy.load('en')
         nlp.max_length = 65000000
         neuralcoref.add_to_pipe(nlp)
+        #merge_ents = nlp.create_pipe("merge_entities")
+        #neuralcoref.add_to_pipe(merge_ents)
         book_processed = ''
         for part in parts:
             book_nlp = nlp(part)
@@ -75,14 +81,15 @@ def NER_tagging():
 def merge_NER():
     ner_dict = {}
     for i in tqdm(range(1, 8)):
-        with open(f'../data/NER_book_{i}.json') as json_file:
-            ner_json = json.load(json_file)
+        #with open(f'../data/NER_book_{i}.tsv') as json_file:
+            #ner_json = json.load(json_file)
+        ner_json = load_NER_from_tsv(f'../data/NER_book_{i}.tsv')
         for key, values in ner_json.items():
             if key in ner_dict.keys():
                 ner_dict[key] += list(set(values))
             else:
                 ner_dict[key] = values
-    with open(f'../data/NER_overall.json', 'w+') as ner_ovr:
+    with open(f'../data/NER_stanford_overall.json', 'w+') as ner_ovr:
         ner_ovr.write(json.dumps(ner_dict, indent=2))
 
 
@@ -90,7 +97,7 @@ def evaluate(tag: str):
     TP = 0
     FP = 0
     FN = 0
-    with open(f'../data/NER_overall_majority_vote.json') as ner_file:
+    with open(f'../data/NER_stanford_overall_majority_vote.json') as ner_file:
         ner_dict = json.load(ner_file)
         content_list = ner_dict[tag]
         char_file = open('../data/characters_unique.txt')
@@ -140,7 +147,7 @@ def evaluate(tag: str):
 
 
 def majority_vote():
-    with open('../data/NER_overall.json') as ner:
+    with open('../data/NER_stanford_overall.json') as ner:
         ner_dict = json.load(ner)
         word_dict = {}
         for key in ner_dict.keys():
@@ -157,7 +164,7 @@ def majority_vote():
             max_occuring_tag = max(ner_counters.items(),
                                    key=operator.itemgetter(1))[0]
             new_ner_dict[max_occuring_tag].append(word)
-        with open('../data/NER_overall_majority_vote.json', 'w+') as majority:
+        with open('../data/NER_stanford_overall_majority_vote.json', 'w+') as majority:
             majority.write(json.dumps(new_ner_dict, indent=2))
 
 
@@ -184,6 +191,107 @@ def extract_chapters():
                 with open(f'../data/chapters/{bp.name[:-4]}.json', 'w+') as json_book:
                     json_book.write(json.dumps(chapter_dict, indent=4))
 
+def load_NER_from_tsv(tsv_file_path):
+    with open(tsv_file_path, 'r') as tsv_file:
+        tsv_file = csv.reader(tsv_file, delimiter='\t')
+        res_dict = {}
+        expanded_save = ['','']
+        for row in tsv_file:
+            if len(row) > 1:
+                if row[1] != 'O':
+                    if not row[1] in res_dict:
+                        res_dict[row[1]] = []
+                    if expanded_save[1] == row[1]:
+                        if row[0] in ['!','?']: # Missclassification
+                            if (expanded_save[1]) != '' and not (expanded_save[0] in res_dict[expanded_save[1]]):
+                                res_dict[expanded_save[1]].append(expanded_save[0])
+                            expanded_save = ['','']
+                        else:
+                            expanded_save[0] = expanded_save[0] + " " + row[0]
+                    else:
+                        if (expanded_save[1] != '') and not (expanded_save[0] in res_dict[expanded_save[1]]):
+                            res_dict[expanded_save[1]].append(expanded_save[0])
+                        expanded_save = [row[0], row[1]]
+                else:
+                    if (expanded_save[1]) != '' and not (expanded_save[0] in res_dict[expanded_save[1]]):
+                                res_dict[expanded_save[1]].append(expanded_save[0])
+                    expanded_save = ['','']
+    return res_dict
+
+def get_book_sentences_coref(book_number):
+    sentence_list = []
+    with open(f'../data/chapters/book_{book_number}_coref.json') as coref_file:
+        coref_sentences_dict = json.load(coref_file)
+        for key in coref_sentences_dict:
+            chapter = coref_sentences_dict[key]
+            chapter_sentence_list = []
+            for s in chapter:
+                chapter_sentence_list.extend(sent_tokenize(s))
+            sentence_list.append(chapter_sentence_list)
+    return sentence_list
+    
+
+def get_person_location(book_number):
+    book_one = createBookString(book_number)
+    book = [sent_tokenize(book_one)]
+    #book = get_book_sentences_coref(book_number)
+    person_count_dict = {}
+    with open(f'../data/NER_stanford_overall_majority_vote.json') as ner_file:
+        ner_dict = json.load(ner_file)
+        #ner_dict = load_NER_from_tsv("../data/NER_book_1.tsv")
+        person_list = ner_dict["PERSON"]
+        org_list = ner_dict["ORGANIZATION"]
+        #location_list = ner_dict["GPE"]
+        #location_list.extend(org_list)
+        location_list = ner_dict["LOCATION"]
+        location_list.extend(org_list)
+        result_list = []
+        for person in person_list:
+            person_count_dict[person] = 0
+        for chapter in book:
+            for sentence in chapter:
+                person_found = False
+                location_found = False
+                locations_found_list = []
+                persons_found_list = []
+                tokens = nltk.word_tokenize(sentence)
+                pos_tags = nltk.pos_tag(tokens)
+                for location in location_list:
+                    if location in sentence:
+                        if len(location) < 3:
+                            continue
+                        location_token = word_tokenize(location)
+                        location_token_pos = -1
+                        for i in range(len(pos_tags)):
+                            if pos_tags[i][0] == location_token[0]:
+                                location_token_pos = i
+                        to_tag_area = max([0,location_token_pos-2])
+                        for i in range(to_tag_area,location_token_pos+1):
+                            if pos_tags[i][1] == 'TO' or pos_tags[i][1] == 'IN':
+                                location_found =True
+                                locations_found_list.append([location, i])
+                for person in person_list:
+                    if person in sentence:
+                        if len(person) < 3:
+                            continue
+                        person_found = True
+                        persons_found_list.append(person)
+                        person_count_dict[person] += 1
+                if location_found and person_found:
+                    result_list.append([persons_found_list, locations_found_list, pos_tags])
+        for res in result_list:
+            major_person_found = False
+            major_person_list = []
+            for person in res[0]:
+                if person_count_dict[person] > 100:
+                    major_person_found =True
+                    major_person_list.append([person, person_count_dict[person]])
+            if major_person_found:
+                print(major_person_list)
+                print(res[1])
+                print(res[2])
+                print("----------------")
+    return res
 
 if __name__ == "__main__":
-    extract_chapters()
+    get_person_location(1)
