@@ -8,6 +8,7 @@ class Location:
         self._name = name
         self._x = x
         self._y = y
+        self._curr_chars = []
     @property
     def x(self):
         return self._x
@@ -17,6 +18,20 @@ class Location:
     @property
     def name(self):
         return self._name
+    
+    @property
+    def current_characters(self):
+        return self._curr_chars
+    
+    def add_character_to_location(self, name:str):
+        if not name in self._curr_chars:
+            self._curr_chars.append(name)
+    def character_leaves(self, name:str):
+        new_list = []
+        for char in self._curr_chars:
+            if not char == name:
+                new_list.append(char)
+        self._curr_chars = new_list
 
 class Map:
     def __init__(self,map_name, image_path):
@@ -51,6 +66,9 @@ class Map:
         location = Location(name_node.text,int(x_node.text),int(y_node.text))
         self._location_list.append(location)
         self._location_dict[name_node.text] = len(self._location_list ) -1
+
+    def is_location_on_map(self, location_name):
+        return location_name in self._location_dict
 
     def get_location_by_name(self, location_name):
         if(location_name in self._location_dict):

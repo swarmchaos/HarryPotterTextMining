@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<Map>
+    <Name>Hogwarts Castle</Name>
+    <Image>test_map.jpg</Image>
+    <Location>
+        <Name>Hogwarts</Name>
+        <X>644</X>
+        <Y>307</Y>
+    </Location>
+    <Location>
+        <Name>Forbidden Forest</Name>
+        <X>900</X>
+        <Y>45</Y>
+    </Location>
+    <Location>
+        <Name>Hogsmeade Station</Name>
+        <X>720</X>
+        <Y>647</Y>
+    </Location>
+    <Location>
+        <Name>Whomping Willow</Name>
+        <X>770</X>
+        <Y>209</Y>
+    </Location>
+    <Location>
+        <Name>Quidditch</Name>
+        <X>336</X>
+        <Y>123</Y>
+    </Location>
+    <Location>
+        <Name>King</Name>
+        <X>820</X>
+        <Y>647</Y>
+    </Location>
+    <Location>
+        <Name>Privet Drive</Name>
+        <X>150</X>
+        <Y>550</Y>
+    </Location>
+</Map>

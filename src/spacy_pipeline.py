@@ -232,9 +232,9 @@ def get_book_sentences_coref(book_number):
     
 
 def get_person_location(book_number):
-    book_one = createBookString(book_number)
-    book = [sent_tokenize(book_one)]
-    #book = get_book_sentences_coref(book_number)
+    #book_one = createBookString(book_number)
+    #book = [sent_tokenize(book_one)]
+    book = get_book_sentences_coref(book_number)
     person_count_dict = {}
     with open(f'../data/NER_stanford_overall_majority_vote.json') as ner_file:
         ner_dict = json.load(ner_file)
@@ -246,8 +246,11 @@ def get_person_location(book_number):
         location_list = ner_dict["LOCATION"]
         location_list.extend(org_list)
         result_list = []
+        result_dict = {}
         for person in person_list:
             person_count_dict[person] = 0
+        chapter_counter = 0
+        print("Number of chapters: " + str(len(book)))
         for chapter in book:
             for sentence in chapter:
                 person_found = False
@@ -268,8 +271,9 @@ def get_person_location(book_number):
                         to_tag_area = max([0,location_token_pos-2])
                         for i in range(to_tag_area,location_token_pos+1):
                             if pos_tags[i][1] == 'TO' or pos_tags[i][1] == 'IN':
+                            #if pos_tags[i][1] == 'TO':
                                 location_found =True
-                                locations_found_list.append([location, i])
+                                locations_found_list.append(location)
                 for person in person_list:
                     if person in sentence:
                         if len(person) < 3:
@@ -278,7 +282,8 @@ def get_person_location(book_number):
                         persons_found_list.append(person)
                         person_count_dict[person] += 1
                 if location_found and person_found:
-                    result_list.append([persons_found_list, locations_found_list, pos_tags])
+                    result_list.append([persons_found_list, locations_found_list, pos_tags, chapter_counter])
+            chapter_counter += 1
         for res in result_list:
             major_person_found = False
             major_person_list = []
@@ -287,11 +292,15 @@ def get_person_location(book_number):
                     major_person_found =True
                     major_person_list.append([person, person_count_dict[person]])
             if major_person_found:
-                print(major_person_list)
-                print(res[1])
-                print(res[2])
-                print("----------------")
-    return res
+                for person in major_person_list:
+                    if person[0] not in result_dict:
+                        result_dict[person[0]] = []
+                    result_dict[person[0]].append([res[1], res[2],res[3]])
+                #print(major_person_list)
+                #print(res[1])
+                #print(res[2])
+                #print("----------------")
+    return (len(book),result_dict)
 
 if __name__ == "__main__":
     get_person_location(1)

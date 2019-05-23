@@ -1,25 +1,15 @@
 <?xml version="1.0"?>
 <Map>
     <Name>Hogwarts</Name>
-    <Image>test_map.jpg</Image>
+    <Image>hogwarts.jpg</Image>
     <Location>
-        <Name>Diagon Alley</Name>
-        <X>644</X>
-        <Y>307</Y>
+        <Name>Great Hall</Name>
+        <X>384</X>
+        <Y>506</Y>
     </Location>
     <Location>
-        <Name>Forbidden Forest</Name>
-        <X>900</X>
-        <Y>45</Y>
-    </Location>
-    <Location>
-        <Name>Hogsmeade Station</Name>
-        <X>720</X>
-        <Y>647</Y>
-    </Location>
-    <Location>
-        <Name>Whomping Willow</Name>
-        <X>770</X>
-        <Y>209</Y>
+        <Name>Gryffindor Tower</Name>
+        <X>279</X>
+        <Y>309</Y>
     </Location>
 </Map>
